@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UK / Schengen Presence Tracker</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --text-primary: #1a1a1a;
+    --text-secondary: #555555;
+    --text-tertiary: #888888;
+    --text-quaternary: #aaaaaa;
+    --border: #e0e0e0;
+    --red: #e53935;
+    --yellow: #ffb300;
+    --surface-hover: #f5f5f5;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --text-primary: #f0f0f0;
+      --text-secondary: #b0b0b0;
+      --text-tertiary: #808080;
+      --text-quaternary: #606060;
+      --border: #333333;
+      --surface-hover: #2a2a2a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text-primary);
+    padding: 24px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .container {
+    max-width: 440px;
+    width: 100%;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .nav-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 16px;
+    color: var(--text-primary);
+    transition: background 0.15s ease;
+  }
+  .nav-btn:hover { background: var(--surface-hover); }
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .weekday {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .cell:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    z-index: 2;
+  }
+  .cell.empty { border: none; cursor: default; pointer-events: none; }
+  .cell.empty:hover { transform: none; box-shadow: none; }
+  .cell.uk {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+  }
+  .cell.schengen {
+    background: var(--yellow);
+    color: #1a1a1a;
+    border-color: var(--yellow);
+  }
+  .cell.both {
+    background: linear-gradient(135deg, var(--red) 50%, var(--yellow) 50%);
+    color: #fff;
+    border-color: var(--border);
+  }
+  .legend {
+    margin-top: 20px;
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .legend-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+  }
+  .legend-box.uk { background: var(--red); border-color: var(--red); }
+  .legend-box.schengen { background: var(--yellow); border-color: var(--yellow); }
+  .legend-box.both {
+    background: linear-gradient(135deg, var(--red) 50%, var(--yellow) 50%);
+    border-color: var(--border);
+  }
+  .hint {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-quaternary);
+  }
+  .stats {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-around;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .stat-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 16px;
+  }
+  .today-marker {
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.7;
+  }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="UK Schengen">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <button class="nav-btn" id="prev">←</button>
+    <h1 id="title"></h1>
+    <button class="nav-btn" id="next">→</button>
+  </div>
+  <div class="weekdays">
+    <div class="weekday">Mon</div>
+    <div class="weekday">Tue</div>
+    <div class="weekday">Wed</div>
+    <div class="weekday">Thu</div>
+    <div class="weekday">Fri</div>
+    <div class="weekday">Sat</div>
+    <div class="weekday">Sun</div>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="stats" id="stats">
+    <div>UK <div class="stat-value" id="uk-count">0</div></div>
+    <div>Schengen <div class="stat-value" id="schengen-count">0</div></div>
+    <div>Both <div class="stat-value" id="both-count">0</div></div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><span class="legend-box uk"></span> UK</div>
+    <div class="legend-item"><span class="legend-box schengen"></span> Schengen</div>
+    <div class="legend-item"><span class="legend-box both"></span> Both</div>
+  </div>
+  <div class="hint">Click a date to cycle: none → UK → Schengen → Both</div>
+</div>
+
+<script>
+(function(){
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let currentYear = 2026, currentMonth = 0;
+  const LS_KEY = 'uk_schengen_calendar_v1';
+  let dayState = {};
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) dayState = JSON.parse(raw);
+    } catch(e) {}
+  }
+  function save() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(dayState)); } catch(e) {}
+  }
+  function pad(n){ return n < 10 ? '0'+n : ''+n; }
+  function key(y,m,d){ return y+'-'+pad(m+1)+'-'+pad(d); }
+
+  function updateStats() {
+    let uk = 0, sc = 0, both = 0;
+    for (const k in dayState) {
+      if (dayState[k] === 1) uk++;
+      else if (dayState[k] === 2) sc++;
+      else if (dayState[k] === 3) both++;
+    }
+    document.getElementById('uk-count').textContent = uk;
+    document.getElementById('schengen-count').textContent = sc;
+    document.getElementById('both-count').textContent = both;
+  }
+
+  function render(){
+    document.getElementById('title').textContent = monthNames[currentMonth] + ' ' + currentYear;
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+    let startOffset = firstDay.getDay() - 1;
+    if(startOffset < 0) startOffset = 6;
+    for(let i=0;i<startOffset;i++){
+      const empty = document.createElement('div');
+      empty.className = 'cell empty';
+      grid.appendChild(empty);
+    }
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === currentMonth;
+
+    for(let d=1; d<=daysInMonth; d++){
+      const k = key(currentYear, currentMonth, d);
+      const cell = document.createElement('div');
+      cell.textContent = d;
+      cell.className = 'cell';
+      const s = dayState[k] || 0;
+      if (s === 1) cell.classList.add('uk');
+      else if (s === 2) cell.classList.add('schengen');
+      else if (s === 3) cell.classList.add('both');
+
+      if (isCurrentMonth && d === today.getDate()) {
+        const dot = document.createElement('span');
+        dot.className = 'today-marker';
+        cell.appendChild(dot);
+      }
+
+      cell.addEventListener('click', function(){
+        const current = dayState[k] || 0;
+        const next = (current + 1) % 4;
+        if (next === 0) delete dayState[k];
+        else dayState[k] = next;
+        cell.className = 'cell';
+        if (next === 1) cell.classList.add('uk');
+        else if (next === 2) cell.classList.add('schengen');
+        else if (next === 3) cell.classList.add('both');
+        save();
+        updateStats();
+      });
+      grid.appendChild(cell);
+    }
+    updateStats();
+  }
+
+  document.getElementById('prev').addEventListener('click', function(){
+    currentMonth--;
+    if(currentMonth < 0){ currentMonth = 11; currentYear--; }
+    render();
+  });
+  document.getElementById('next').addEventListener('click', function(){
+    currentMonth++;
+    if(currentMonth > 11){ currentMonth = 0; currentYear++; }
+    render();
+  });
+
+  load();
+  render();
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+    .then(function(reg) { console.log('SW registered'); })
+    .catch(function(err) { console.log('SW failed', err); });
+}
+</script>
+</body>
+</html>
